@@ -19,6 +19,7 @@ from persistence import PersistentData
 from llm_sources import LLMSource
 from tts_sources import TTSSource
 from sr_sources import SRSource
+from openai import AsyncOpenAI
 
 
 class DiscordClient(discord.Client):
@@ -32,6 +33,10 @@ class DiscordClient(discord.Client):
 
     def __init__(self, config: Config):
         self.config = config
+        self.openai_client = AsyncOpenAI(
+            api_key=self.config.openai_key,
+            base_url=self.config.openai_reverse_proxy_url or None
+        )
 
         if not self.config.can_interact_with_channel_id(-1) and not self.config.discord_active_channels:
             raise Exception(
@@ -518,11 +523,13 @@ class DiscordClient(discord.Client):
     async def store_embedding(self, message: tuple[int, str, int]):
         author_id, content, message_id = message
         if self.config.openai_use_embeddings and self.llm.is_openai:
-            async with ClientSession() as s:
-                openai.aiosession.set(s)
-                embedding = await openai.Embedding.acreate(api_base=self.config.openai_reverse_proxy_url, input=content, model="text-embedding-ada-002")
-                self.db.add_embedding(message, embedding['data'][0]['embedding'])
-                logger.debug("Added embedding for message " + str(message_id))
+            response = await self.openai_client.embeddings.create(
+                input=content,
+                model="text-embedding-ada-002"
+            )
+            embedding = response.data[0].embedding
+            self.db.add_embedding(message, embedding)
+            logger.debug(f"Added embedding for message {message_id}")
 
     async def on_speech(self, speaker_id, speech):
         speaker = discord.utils.get(self.get_all_members(), id=speaker_id)

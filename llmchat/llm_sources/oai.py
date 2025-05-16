@@ -32,17 +32,17 @@ class OpenAI(LLMSource):
         openai.api_key = self.config.openai_key
 
     async def list_models(self) -> list[discord.SelectOption]:
-        async with ClientSession() as c:
-            openai.aiosession.set(c)
-            # fix api requestor error
-            all_models = openai.Model.list(api_base=self.config.openai_reverse_proxy_url)
-            ret = [
-                m.id
-                for m in all_models.data
-                if not ("-search-" in m.id or "-similarity-" in m.id)
-            ]
-            ret.sort()
-            return [discord.SelectOption(label=m, value=m, default=self.config.openai_model == m) for m in ret]
+        response = await self.openai_client.models.list()
+        model_ids = [
+            model.id
+            for model in response.data
+            if "-search-" not in model.id and "-similarity-" not in model.id
+        ]
+        model_ids.sort()
+        return [
+            discord.SelectOption(label=m, value=m, default=self.config.openai_model == m)
+            for m in model_ids
+        ]
 
     def set_model(self, model_id: str) -> None:
         logger.info(f"OpenAI model set to {model_id}")
@@ -90,66 +90,75 @@ class OpenAI(LLMSource):
     async def generate_response(
         self, invoker: discord.User = None, _retry_count=0
     ) -> str:
-        async with ClientSession() as s:
-            openai.aiosession.set(s)
+        try:
+            if not self.use_chat_completion:
+                completion_tokens = (
+                    400 if self.config.llm_max_tokens == 0 else self.config.llm_max_tokens
+                )
+                prompt = await self.get_context_gpt3(invoker)
+                token_count = self.get_token_count(prompt)
 
-            try:
-                if not self.use_chat_completion:
-                    completion_tokens = 400 if self.config.llm_max_tokens == 0 else self.config.llm_max_tokens
-                    prompt = await self.get_context_gpt3(invoker)
-                    token_count = self.get_token_count(prompt)
+                if token_count + completion_tokens > GPT_3_MAX_TOKENS:
+                    completion_tokens = GPT_3_MAX_TOKENS - token_count
+                    if completion_tokens < 0:
+                        raise Exception(
+                            f"Token limit exceeded! ({token_count} > {GPT_3_MAX_TOKENS}) Please make your initial context shorter or reduce the message context count!"
+                        )
 
-                    if token_count + completion_tokens > GPT_3_MAX_TOKENS:
-                        completion_tokens = GPT_3_MAX_TOKENS - token_count
-                        if completion_tokens < 0:
-                            raise Exception(f"Token limit exceeded! ({token_count} > {GPT_3_MAX_TOKENS}) Please make your initial context shorter or reduce the message context count!")
+                response = await self.openai_client.completions.create(
+                    model=self.config.openai_model,
+                    prompt=prompt,
+                    stop=["\n"],
+                    max_tokens=completion_tokens,
+                    temperature=self.config.llm_temperature,
+                    presence_penalty=self.config.llm_presence_penalty,
+                    frequency_penalty=self.config.llm_frequency_penalty,
+                )
+                logger.debug(f"{response.usage.total_tokens} tokens used")
+                result_text = response.choices[0].text.strip()
 
-                    response = await openai.Completion.acreate(
-                        api_base=self.config.openai_reverse_proxy_url,
-                        model=self.config.openai_model,
-                        prompt=prompt,
-                        stop="\n",
-                        max_tokens=completion_tokens,
-                        temperature=self.config.llm_temperature,
-                        presence_penalty=self.config.llm_presence_penalty,
-                        frequency_penalty=self.config.llm_frequency_penalty,
-                    )
-                    logger.debug(f"{response.usage.total_tokens} tokens used")
-                    response = response.choices[0].text.strip()
-                else:
-                    completion_tokens = self.config.llm_max_tokens
-                    messages = self.get_context_gpt4(invoker)
-                    token_count = self.get_token_count(messages)
-                    model_max_tokens = GPT_4_MAX_TOKENS if "32k" not in self.config.openai_model else GPT_4_32K_MAX_TOKENS
+            else:
+                completion_tokens = self.config.llm_max_tokens
+                messages = self.get_context_gpt4(invoker)
+                token_count = self.get_token_count(messages)
 
-                    if token_count + completion_tokens > model_max_tokens:
-                        completion_tokens = model_max_tokens - token_count
-                        if completion_tokens < 0:
-                            raise Exception(f"Token limit exceeded! ({token_count} > {model_max_tokens}) Please make your initial context shorter or reduce the message context count!")
+                model_max_tokens = (
+                    GPT_4_MAX_TOKENS
+                    if "32k" not in self.config.openai_model
+                    else GPT_4_32K_MAX_TOKENS
+                )
 
-                    response = await openai.ChatCompletion.acreate(
-                        api_base=self.config.openai_reverse_proxy_url,
-                        model=self.config.openai_model,
-                        max_tokens=None
-                        if completion_tokens == 0
-                        else completion_tokens,
-                        messages=messages,
-                        temperature=self.config.llm_temperature,
-                        presence_penalty=self.config.llm_presence_penalty,
-                        frequency_penalty=self.config.llm_frequency_penalty,
-                    )
-                    logger.debug(f"{response.usage.total_tokens} tokens used")
-                    response = response.choices[0].message.content.strip()
+                if token_count + completion_tokens > model_max_tokens:
+                    completion_tokens = model_max_tokens - token_count
+                    if completion_tokens < 0:
+                        raise Exception(
+                            f"Token limit exceeded! ({token_count} > {model_max_tokens}) Please make your initial context shorter or reduce the message context count!"
+                        )
 
-                if not response:
-                    raise Exception("Response from OpenAI API was empty!")
-                return response
-            except openai.error.APIConnectionError as e:
-                # https://github.com/openai/openai-python/issues/371
-                if _retry_count == 3:
-                    raise e
-                logger.warn(f"Connection reset error, Retrying ({_retry_count})...")
-                return await self.generate_response(_retry_count=_retry_count + 1)
+                response = await self.openai_client.chat.completions.create(
+                    model=self.config.openai_model,
+                    messages=messages,
+                    max_tokens=None
+                    if completion_tokens == 0
+                    else completion_tokens,
+                    temperature=self.config.llm_temperature,
+                    presence_penalty=self.config.llm_presence_penalty,
+                    frequency_penalty=self.config.llm_frequency_penalty,
+                )
+                logger.debug(f"{response.usage.total_tokens} tokens used")
+                result_text = response.choices[0].message.content.strip()
+
+            if not result_text:
+                raise Exception("Response from OpenAI API was empty!")
+
+            return result_text
+
+        except Exception as e:
+            import openai
+            if isinstance(e, openai.OpenAIError) and _retry_count < 3:
+                logger.warning(f"OpenAI error, retrying ({_retry_count})... {e}")
+                return await self.generate_response(invoker=invoker, _retry_count=_retry_count + 1)
+            raise e
 
     async def get_context_gpt3(self, invoker: discord.User = None) -> str:
         self.update_encoding()
