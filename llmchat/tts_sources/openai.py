@@ -15,14 +15,12 @@ class OpenAITTS(TTSSource):
             model="gpt-4o-mini-tts",
             input=content,
             voice="ballad",
+            response_format="wav",
             instructions=instructions
         ))
 
-        buf = io.BytesIO()
-        for chunk in response.iter_bytes(chunk_size=4096):  # Stream audio in chunks
-            buf.write(chunk)
-
-        buf.seek(0)  # Reset buffer position for playback
+        audio_data = b''.join(chunk for chunk in response.iter_bytes())
+        buf = io.BytesIO(audio_data)
         return buf
 
     @property

@@ -1,4 +1,4 @@
-openai~=0.27.2
+openai~=1.14.3
 numpy~=1.23.5
 PyAudio~=0.2.13
 pynacl
