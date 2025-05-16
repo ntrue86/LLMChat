@@ -8,11 +8,10 @@ from . import TTSSource
 
 class OpenAITTS(TTSSource):
     async def generate_speech(self, content: str) -> io.BufferedIOBase:
-        client = openai.OpenAI(api_key=self.config.openai_key)  # Explicitly instantiate the OpenAI client
-        
         instructions = """Affect: Deep, commanding, and slightly dramatic, with an archaic and reverent quality that reflects the grandeur of Olde English storytelling.\n\nTone: Noble, heroic, and formal, capturing the essence of medieval knights and epic quests, while reflecting the antiquated charm of Olde English.\n\nEmotion: Excitement, anticipation, and a sense of mystery, combined with the seriousness of fate and duty.\n\nPronunciation: Clear, deliberate, and with a slightly formal cadence. Specific words like \"hast,\" \"thou,\" and \"doth\" should be pronounced slowly and with emphasis to reflect Olde English speech patterns.\n\nPause: Pauses after important Olde English phrases such as \"Lo!\" or \"Hark!\" and between clauses like \"Choose thy path\" to add weight to the decision-making process and allow the listener to reflect on the seriousness of the quest."""
+        openai.api_key = self.config.openai_key  # Set API key globally
 
-        response = await self.client.loop.run_in_executor(None, lambda: client.audio.speech.with_streaming_response.create(
+        response = await self.client.loop.run_in_executor(None, lambda: openai.Audio.speech.with_streaming_response.create(
             model="gpt-4o-mini-tts",
             input=content,
             voice="ballad",
