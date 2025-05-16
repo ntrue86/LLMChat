@@ -7,6 +7,7 @@ import openai
 from aiohttp import ClientSession
 import tiktoken
 from typing import Union
+from openai import AsyncOpenAI
 
 GPT_3_MAX_TOKENS = 2048
 GPT_4_MAX_TOKENS = 8192
@@ -18,6 +19,10 @@ class OpenAI(LLMSource):
         super(OpenAI, self).__init__(client, config, db)
         self.update_encoding()
         self.on_config_reloaded()
+        self.openai_client = AsyncOpenAI(
+            api_key=self.config.openai_key,
+            base_url=self.config.openai_reverse_proxy_url or None
+        )
 
     async def check_model(self):
         assert (
