@@ -5,6 +5,7 @@ class Config:
     def __init__(self, path="config.ini"):
         self.path = path
         self._config = configparser.ConfigParser(comment_prefixes='/', allow_no_value=True)
+        self.openai_voice = "ballad" 
         self.load()
 
     def load(self):
