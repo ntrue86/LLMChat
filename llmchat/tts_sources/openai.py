@@ -1,13 +1,16 @@
 import os
 import discord
 from openai import AsyncOpenAI
-from discord import SelectOption
+from discord import User, Client, SelectOption
+from llmchat.config import Config
+from llmchat.persistence import PersistentData
+from llmchat.logger import logger
 import io
 import asyncio
 from . import TTSSource
 
 class OpenAITTS(TTSSource):
-    def __init__(self, config):
+    def __init__(self, client: Client, config: Config, db: PersistentData):
         self.config = config
         self.client = AsyncOpenAI(api_key=config.openai_key)
 
