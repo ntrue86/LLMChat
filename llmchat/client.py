@@ -150,6 +150,9 @@ class DiscordClient(discord.Client):
         elif self.config.bot_tts_service == "play.ht":
             from tts_sources.playht import PlayHt
             self.tts = PlayHt(*params)
+        elif self.config.bot.tts_service == "openai":
+            from tts_sources.openai import OpenAITTS
+            self.tts = OpenAITTS(*params)
         else:
             logger.critical(f"Unknown TTS service: {self.config.bot_tts_service}")
 
