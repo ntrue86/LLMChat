@@ -4,6 +4,7 @@ import openai
 from discord import SelectOption
 import io
 import asyncio
+from . import TTSSource
 
 class OpenAITTS(TTSSource):
     async def generate_speech(self, content: str) -> io.BufferedIOBase:
