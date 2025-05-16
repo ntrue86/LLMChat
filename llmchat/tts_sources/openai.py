@@ -1,12 +1,16 @@
 import os
 import discord
-import openai
+from openai import AsyncOpenAI
 from discord import SelectOption
 import io
 import asyncio
 from . import TTSSource
 
 class OpenAITTS(TTSSource):
+    def __init__(self, config):
+        self.config = config
+        self.client = AsyncOpenAI(api_key=config.openai_key)
+
     async def generate_speech(self, content: str) -> io.BufferedIOBase:
         instructions = ("Affect: Deep, commanding, and slightly dramatic, with an archaic and reverent quality that reflects the grandeur of Olde English storytelling.\n"
                         "Tone: Noble, heroic, and formal, capturing the essence of medieval knights and epic quests, while reflecting the antiquated charm of Olde English.\n"
