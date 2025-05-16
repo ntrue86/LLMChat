@@ -23,19 +23,14 @@ class OpenAITTS(TTSSource):
 
         voice = getattr(self.config, "openai_voice", "ballad")
 
-        response = await self.client.audio.speech.with_streaming_response.create(
+        async with self.client.audio.speech.with_streaming_response.create(
             model="tts-1-hd",
             input=content,
-            voice="ballad",
+            voice=voice,
             response_format="wav",
             instructions=instructions
-        )
-
-
-        buf = io.BytesIO(await response.read())
-        return buf
-
-
+        ) as stream:
+            return io.BytesIO(await stream.read())
     @property
     def current_voice_name(self) -> str:
         return self.config.openai_voice  # OpenAI doesn't have a voice cache like Eleven Labs
