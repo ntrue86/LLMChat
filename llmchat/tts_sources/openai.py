@@ -21,10 +21,10 @@ class OpenAITTS(TTSSource):
                         "Pronunciation: Clear, deliberate, and with a slightly formal cadence. Specific words like \"hast,\" \"thou,\" and \"doth\" should be pronounced slowly and with emphasis to reflect Olde English speech patterns.\n"
                         "Pause: Pauses after important Olde English phrases such as \"Lo!\" or \"Hark!\" and between clauses like \"Choose thy path\" to add weight to the decision-making process and allow the listener to reflect on the seriousness of the quest.")
 
-        voice = getattr(self.config, "openai_voice", "fable")
+        voice = getattr(self.config, "openai_voice", "ballad")
 
         async with self.client.audio.speech.with_streaming_response.create(
-            model="tts-1-hd",
+            model="gpt-4o-mini-tts",
             input=content,
             voice=voice,
             response_format="wav",
