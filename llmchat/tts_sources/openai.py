@@ -12,7 +12,7 @@ from . import TTSSource
 class OpenAITTS(TTSSource):
     def __init__(self, client: Client, config: Config, db: PersistentData):
         self.config = config
-        self.client = AsyncOpenAI(api_key=config.openai_key)
+        self.client = AsyncOpenAI(api_key=config.openai_tts_key)
 
     async def generate_speech(self, content: str) -> io.BufferedIOBase:
         instructions = ("Affect: Deep, commanding, and slightly dramatic, with an archaic and reverent quality that reflects the grandeur of Olde English storytelling.\n"
@@ -24,11 +24,11 @@ class OpenAITTS(TTSSource):
         voice = getattr(self.config, "openai_voice", "ballad")
 
         async with self.client.audio.speech.with_streaming_response.create(
-            model="gpt-4o-mini-tts",
+            model=self.config.openai_tts_model,
             input=content,
-            voice=voice,
+            voice=self.config.openai_tts_voice,
             response_format="wav",
-            instructions=instructions
+            instructions=self.config.openai_tts_instructions
         ) as stream:
             return io.BytesIO(await stream.read())
     @property

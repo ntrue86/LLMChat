@@ -70,6 +70,22 @@ class Config:
     def openai_max_similar_messages(self, max_similar_messages):
         self._config.set("OpenAI", "max_similar_messages", str(max_similar_messages))
         self.save()
+        
+    @property
+    def openai_tts_key(self) -> str:
+        return self._config.get("OpenAI_TTS", "key")
+
+    @property
+    def openai_tts_model(self) -> str:
+        return self._config.get("OpenAI_TTS", "model", fallback="gpt-4o-mini-tts")
+
+    @property
+    def openai_tts_voice(self) -> str:
+        return self._config.get("OpenAI_TTS", "voice", fallback="ballad")
+
+    @property
+    def openai_tts_instructions(self) -> str:
+        return self._config.get("OpenAI_TTS", "instructions", fallback=None)
 
     @property
     def llm_context_messages_count(self) -> int:
