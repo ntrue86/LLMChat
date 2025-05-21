@@ -635,6 +635,8 @@ class DiscordClient(discord.Client):
                 logger.info(f"Image caption: {caption}")
                 message.content += f"\n[{caption}]"
 
+        message.content = f"{message.author.display_name}: {message.content}"
+
         self.db.append(message)
         await self.store_embedding((message.author.id, message.content, message.id))
 
